@@ -32,7 +32,8 @@ set device      [lindex $::argv 1]
 ############################
 # System configuration
 ############################
-source system_config.tcl
+variable ipi_scr_path [file normalize [info script]]
+source ${ipi_scr_path}/compile/system_config.tcl
 
 ############################
 # Script begins 
