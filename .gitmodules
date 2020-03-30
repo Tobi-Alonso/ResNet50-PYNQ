@@ -8,3 +8,6 @@
 [submodule "compile/FINN-RTLLib"]
 	path = compile/FINN-RTLLib
 	url = git@gitenterprise.xilinx.com:tobiasa/FINN-RTLLib.git
+[submodule "compile/mem-packing"]
+	path = compile/mem-packing
+	url = git@gitenterprise.xilinx.com:tobiasa/mem-packing.git
