@@ -29,9 +29,14 @@
 set clkfreqmhz  [lindex $::argv 0]
 set device      [lindex $::argv 1]
 
-#TODO: generate this list from SLR number argument
-set available_SLRs [list 0 1 2 3]
-set single_streamer_layers [list res2a res2b res2c res3a res3b res3c res3d res4a res4b res4c res4d res4e res4f res5a res5b res5c]
+############################
+# System configuration
+############################
+source system_config.tcl
+
+############################
+# Script begins 
+############################
 
 
 # Set the reference directory for source file relative paths (by default the value is script directory path)
@@ -172,279 +177,290 @@ set obj [get_filesets sim_1]
 
 # Adding sources referenced in BDs, if not already added
 
-
+############################
 # Proc to create BD resnet50
+############################
 proc cr_bd_resnet50 { parentCell } {
 
   global clkfreqmhz
+
+  global design_name
+  global using_double_pumping
   global single_streamer_layers
+  global SLRs_with_mem_subsystem
+  global pack_streamer_layers
+  global layer_floorplan
   global available_SLRs
+  global RST_list
+  global enable_clk2
+  global ip_floorplan
   
-  # CHANGE DESIGN NAME HERE
-  set design_name resnet50
 
   common::send_msg_id "BD_TCL-003" "INFO" "Currently there is no design <$design_name> in project, so creating one..."
 
   create_bd_design $design_name
 
-  set bCheckIPsPassed 1
-  ##################################################################
+  #############
   # CHECK IPs
-  ##################################################################
-  set bCheckIPs 1
-  if { $bCheckIPs == 1 } {
-     set list_check_ips "\ 
-  xilinx.com:hls:res2a:1.0\
-  xilinx.com:hls:res2b:1.0\
-  xilinx.com:hls:res2c:1.0\
-  xilinx.com:hls:res3a:1.0\
-  xilinx.com:hls:res3b:1.0\
-  xilinx.com:hls:res3c:1.0\
-  xilinx.com:hls:res3d:1.0\
-  xilinx.com:hls:res4a:1.0\
-  xilinx.com:hls:res4b:1.0\
-  xilinx.com:hls:res4c:1.0\
-  xilinx.com:hls:res4d:1.0\
-  xilinx.com:hls:res4e:1.0\
-  xilinx.com:hls:res4f:1.0\
-  xilinx.com:hls:res5a:1.0\
-  xilinx.com:hls:res5b:1.0\
-  xilinx.com:hls:res5c:1.0\
-  xilinx.com:hls:inoutdma:1.0\
-  xilinx.com:hls:preres:1.0\
-  xilinx.com:hls:postres:1.0\
-  "
+  #############
+    set bCheckIPsPassed 1
+    set bCheckIPs 1
+    if { $bCheckIPs == 1 } {
+      set list_check_ips "\ 
+        xilinx.com:hls:res2a:1.0\
+        xilinx.com:hls:res2b:1.0\
+        xilinx.com:hls:res2c:1.0\
+        xilinx.com:hls:res3a:1.0\
+        xilinx.com:hls:res3b:1.0\
+        xilinx.com:hls:res3c:1.0\
+        xilinx.com:hls:res3d:1.0\
+        xilinx.com:hls:res4a:1.0\
+        xilinx.com:hls:res4b:1.0\
+        xilinx.com:hls:res4c:1.0\
+        xilinx.com:hls:res4d:1.0\
+        xilinx.com:hls:res4e:1.0\
+        xilinx.com:hls:res4f:1.0\
+        xilinx.com:hls:res5a:1.0\
+        xilinx.com:hls:res5b:1.0\
+        xilinx.com:hls:res5c:1.0\
+        xilinx.com:hls:inoutdma:1.0\
+        xilinx.com:hls:preres:1.0\
+        xilinx.com:hls:postres:1.0\
+      "
 
-  foreach layer $single_streamer_layers {
-    lappend list_check_ips xilinx.com:hls:${layer}_streamer:1.0
-  }
+    puts "CHECK IPs : Fixed list: $list_check_ips"
+    foreach layer $single_streamer_layers {
+      puts "CHECK IPs : Add ip: ${layer}_streamer:1.0 "
+      lappend list_check_ips xilinx.com:hls:${layer}_streamer:1.0
+    }
 
-  puts "IP list: $list_check_ips"
+    foreach SLR $SLRs_with_mem_subsystem {
+      puts "CHECK IPs : Add ip: mem_subsystem_slr${SLR}:1.0"
+      lappend list_check_ips "xilinx.com:user:mem_subsystem_slr${SLR}:1.0"
+    }
 
-  # if usign mem-packing
-  # xilinx.com:user:mem_subsystem_slr1:1.0\
-  # xilinx.com:user:mem_subsystem_slr2:1.0\
-  # xilinx.com:user:mem_subsystem_slr3:1.0\
+    puts "IP list: $list_check_ips"
 
-   set list_ips_missing ""
-   common::send_msg_id "BD_TCL-006" "INFO" "Checking if the following IPs exist in the project's IP catalog: $list_check_ips ."
+    
+     set list_ips_missing ""
+     common::send_msg_id "BD_TCL-006" "INFO" "Checking if the following IPs exist in the project's IP catalog: $list_check_ips ."
 
-   foreach ip_vlnv $list_check_ips {
-      set ip_obj [get_ipdefs -all $ip_vlnv]
-      if { $ip_obj eq "" } {
-         lappend list_ips_missing $ip_vlnv
-      }
-   }
+     foreach ip_vlnv $list_check_ips {
+        set ip_obj [get_ipdefs -all $ip_vlnv]
+        if { $ip_obj eq "" } {
+           lappend list_ips_missing $ip_vlnv
+        }
+     }
 
-   if { $list_ips_missing ne "" } {
-      catch {common::send_msg_id "BD_TCL-115" "ERROR" "The following IPs are not found in the IP Catalog:\n  $list_ips_missing\n\nResolution: Please add the repository containing the IP(s) to the project." }
-      set bCheckIPsPassed 0
-   }
+     if { $list_ips_missing ne "" } {
+        catch {common::send_msg_id "BD_TCL-115" "ERROR" "The following IPs are not found in the IP Catalog:\n  $list_ips_missing\n\nResolution: Please add the repository containing the IP(s) to the project." }
+        set bCheckIPsPassed 0
+     }
 
-  }
+    }
 
-  if { $bCheckIPsPassed != 1 } {
-    common::send_msg_id "BD_TCL-1003" "WARNING" "Will not continue with creation of design due to the error(s) above."
-    return 3
-  }
+    if { $bCheckIPsPassed != 1 } {
+      common::send_msg_id "BD_TCL-1003" "WARNING" "Will not continue with creation of design due to the error(s) above."
+      return 3
+    }
 
-  variable script_folder
 
-  if { $parentCell eq "" } {
-     set parentCell [get_bd_cells /]
-  }
+  #############
+  # Init Block Design
+  #############
+    variable script_folder
 
-  # Get object for parentCell
-  set parentObj [get_bd_cells $parentCell]
-  if { $parentObj == "" } {
-     catch {common::send_msg_id "BD_TCL-100" "ERROR" "Unable to find parent cell <$parentCell>!"}
-     return
-  }
+    if { $parentCell eq "" } {
+       set parentCell [get_bd_cells /]
+    }
 
-  # Make sure parentObj is hier blk
-  set parentType [get_property TYPE $parentObj]
-  if { $parentType ne "hier" } {
-     catch {common::send_msg_id "BD_TCL-101" "ERROR" "Parent <$parentObj> has TYPE = <$parentType>. Expected to be <hier>."}
-     return
-  }
+    # Get object for parentCell
+    set parentObj [get_bd_cells $parentCell]
+    if { $parentObj == "" } {
+       catch {common::send_msg_id "BD_TCL-100" "ERROR" "Unable to find parent cell <$parentCell>!"}
+       return
+    }
 
-  # Save current instance; Restore later
-  set oldCurInst [current_bd_instance .]
+    # Make sure parentObj is hier blk
+    set parentType [get_property TYPE $parentObj]
+    if { $parentType ne "hier" } {
+       catch {common::send_msg_id "BD_TCL-101" "ERROR" "Parent <$parentObj> has TYPE = <$parentType>. Expected to be <hier>."}
+       return
+    }
 
-  # Set parent object as current
-  current_bd_instance $parentObj
+    # Save current instance; Restore later
+    set oldCurInst [current_bd_instance .]
+
+    # Set parent object as current
+    current_bd_instance $parentObj
+
 
   # Create clock and reset ports according to SDx spec
-  create_bd_port -dir I -type clk ap_clk
-  set_property CONFIG.FREQ_HZ [expr {$clkfreqmhz*1000000}] [get_bd_ports ap_clk]
+    create_bd_port -dir I -type clk -freq_hz [expr {$clkfreqmhz*1000000}] ap_clk
+    #set_property CONFIG.FREQ_HZ [expr {$clkfreqmhz*1000000}] [get_bd_ports ap_clk]
 
-  create_bd_port -dir I -type rst ap_rst_n
-  set_property CONFIG.POLARITY ACTIVE_LOW [get_bd_ports ap_rst_n]
+    create_bd_port -dir I -type rst ap_rst_n
+    set_property CONFIG.POLARITY ACTIVE_LOW [get_bd_ports ap_rst_n]
 
-  # if using mem-packing
-  #create_bd_port -dir I -type clk ap_clk_2
-  #set_property CONFIG.FREQ_HZ [expr {$clkfreqmhz*2*1000000}] [get_bd_ports ap_clk_2]
+    if { $enable_clk2 } {
+      puts "CLK & RST: Adding clk_2 and rst_2"
+      create_bd_port -dir I -type clk -freq_hz [expr {$clkfreqmhz*2*1000000}] ap_clk_2  
+      #set_property CONFIG.FREQ_HZ [expr {$clkfreqmhz*2*1000000}] [get_bd_ports ap_clk_2]
 
-  # create_bd_port -dir I -type rst ap_rst_n_2
-  # set_property CONFIG.POLARITY ACTIVE_LOW [get_bd_ports ap_rst_n_2]
-
-
-  # Create resblock instances
-  set res2a_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res2a:1.0 res2a_0 ]
-  set res2b_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res2b:1.0 res2b_0 ]
-  set res2c_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res2c:1.0 res2c_0 ]
-  set res3a_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res3a:1.0 res3a_0 ]
-  set res3b_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res3b:1.0 res3b_0 ]
-  set res3c_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res3c:1.0 res3c_0 ]
-  set res3d_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res3d:1.0 res3d_0 ]
-  set res4a_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res4a:1.0 res4a_0 ]
-  set res4b_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res4b:1.0 res4b_0 ]
-  set res4c_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res4c:1.0 res4c_0 ]
-  set res4d_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res4d:1.0 res4d_0 ]
-  set res4e_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res4e:1.0 res4e_0 ]
-  set res4f_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res4f:1.0 res4f_0 ]
-  set res5a_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res5a:1.0 res5a_0 ]
-  set res5b_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res5b:1.0 res5b_0 ]
-  set res5c_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:res5c:1.0 res5c_0 ]
-
-  # Create per-layer streamers instances
-  foreach layer $single_streamer_layers {
-    set ${layer}_streamer [ create_bd_cell -type ip -vlnv xilinx.com:hls:${layer}_streamer:1.0 ${layer}_streamer ]
-  }
-
-
-  # if using mem-packing
-  # add per slr mem_subsystem
-
-  set inoutdma_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:inoutdma:1.0 inoutdma_0 ]
-  set preres_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:preres:1.0 preres_0 ]
-  set postres_0 [ create_bd_cell -type ip -vlnv xilinx.com:hls:postres:1.0 postres_0 ]
-
-  # if using mem-packing ap_clk_2 is used for double pumping: add reset?
-  #create reset infrastructure
-  #reset originates in SLR0 and we pipeline it using one register in each slr:
-  #SLR0 -> SLR1 -> SLR2 -> SLR3
-  #from each slr pipeline register, we push the reset through a BUFG to destinations
-  #using a passthrough reduced logic to avoid wire type errors 
-  foreach RST [list 0] {
-    foreach SLR $available_SLRs {
-      puts "Implementing reset ${RST} infrastructure for SLR${SLR}"
-
-      create_bd_cell -type ip -vlnv xilinx.com:ip:c_shift_ram:12.0 rst${RST}_pipe_slr${SLR}
-      set_property -dict [list CONFIG.Width.VALUE_SRC USER] [get_bd_cells rst${RST}_pipe_slr${SLR}]
-      set_property -dict [list CONFIG.Width {1} CONFIG.Depth {1} CONFIG.DefaultData {0} CONFIG.AsyncInitVal {0} CONFIG.SSET {false} CONFIG.SCLR {false} CONFIG.SyncInitVal {0}] [get_bd_cells rst${RST}_pipe_slr${SLR}]
-      if {$RST == 0} {
-        connect_bd_net [get_bd_ports ap_clk] [get_bd_pins rst${RST}_pipe_slr${SLR}/CLK]
-      } else {
-        connect_bd_net [get_bd_ports ap_clk_2] [get_bd_pins rst${RST}_pipe_slr${SLR}/CLK]
-      }
-      if {$SLR == 0} {
-        #one passthrough to remove reset attribute from net
-        create_bd_cell -type ip -vlnv xilinx.com:ip:util_reduced_logic:2.0 rst${RST}_conv_in
-        set_property -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {or}] [get_bd_cells rst${RST}_conv_in]
-        if {$RST == 0} {
-          connect_bd_net [get_bd_ports ap_rst_n] [get_bd_pins rst${RST}_conv_in/Op1]
-        } else {
-          connect_bd_net [get_bd_ports ap_rst_n_2] [get_bd_pins rst${RST}_conv_in/Op1]
-        }
-        connect_bd_net [get_bd_pins rst${RST}_conv_in/Res] [get_bd_pins rst${RST}_pipe_slr${SLR}/D]
-      } else {
-        connect_bd_net [get_bd_pins rst${RST}_pipe_slr[expr {$SLR-1}]/Q] [get_bd_pins rst${RST}_pipe_slr${SLR}/D]
-      }
-      create_bd_cell -type ip -vlnv xilinx.com:ip:util_ds_buf:2.1 rst${RST}_buf_slr${SLR}
-      set_property -dict [list CONFIG.C_BUF_TYPE {BUFG}] [get_bd_cells rst${RST}_buf_slr${SLR}]
-      connect_bd_net [get_bd_pins rst${RST}_pipe_slr${SLR}/Q] [get_bd_pins rst${RST}_buf_slr${SLR}/BUFG_I]
-
-      create_bd_cell -type ip -vlnv xilinx.com:ip:util_reduced_logic:2.0 rst${RST}_pass_slr${SLR}
-      set_property -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {or}] [get_bd_cells rst${RST}_pass_slr${SLR}]
-      connect_bd_net [get_bd_pins rst${RST}_buf_slr${SLR}/BUFG_O] [get_bd_pins rst${RST}_pass_slr${SLR}/Op1]
+      create_bd_port -dir I -type rst ap_rst_n_2
+      set_property CONFIG.POLARITY ACTIVE_LOW [get_bd_ports ap_rst_n_2]
     }
-  }
+
+
+    #create reset infrastructure
+      #reset originates in SLR0 and we pipeline it using one register in each slr:
+      #SLR0 -> SLR1 -> SLR2 -> SLR3
+      #from each slr pipeline register, we push the reset through a BUFG to destinations
+      #using a passthrough reduced logic to avoid wire type errors 
+    foreach RST $RST_list {
+      foreach SLR $available_SLRs {
+        puts "Implementing reset ${RST} infrastructure for SLR${SLR}"
+
+        create_bd_cell -type ip -vlnv xilinx.com:ip:c_shift_ram:12.0 rst${RST}_pipe_slr${SLR}
+        set_property -dict [list CONFIG.Width.VALUE_SRC USER] [get_bd_cells rst${RST}_pipe_slr${SLR}]
+        set_property -dict [list CONFIG.Width {1} CONFIG.Depth {1} CONFIG.DefaultData {0} CONFIG.AsyncInitVal {0} CONFIG.SSET {false} CONFIG.SCLR {false} CONFIG.SyncInitVal {0}] [get_bd_cells rst${RST}_pipe_slr${SLR}]
+        if {$RST == 0} {
+          connect_bd_net [get_bd_ports ap_clk] [get_bd_pins rst${RST}_pipe_slr${SLR}/CLK]
+        } else {
+          connect_bd_net [get_bd_ports ap_clk_2] [get_bd_pins rst${RST}_pipe_slr${SLR}/CLK]
+        }
+        if {$SLR == 0} {
+          #one passthrough to remove reset attribute from net
+          create_bd_cell -type ip -vlnv xilinx.com:ip:util_reduced_logic:2.0 rst${RST}_conv_in
+          set_property -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {or}] [get_bd_cells rst${RST}_conv_in]
+          if {$RST == 0} {
+            connect_bd_net [get_bd_ports ap_rst_n] [get_bd_pins rst${RST}_conv_in/Op1]
+          } else {
+            connect_bd_net [get_bd_ports ap_rst_n_2] [get_bd_pins rst${RST}_conv_in/Op1]
+          }
+          connect_bd_net [get_bd_pins rst${RST}_conv_in/Res] [get_bd_pins rst${RST}_pipe_slr${SLR}/D]
+        } else {
+          connect_bd_net [get_bd_pins rst${RST}_pipe_slr[expr {$SLR-1}]/Q] [get_bd_pins rst${RST}_pipe_slr${SLR}/D]
+        }
+        create_bd_cell -type ip -vlnv xilinx.com:ip:util_ds_buf:2.1 rst${RST}_buf_slr${SLR}
+        set_property -dict [list CONFIG.C_BUF_TYPE {BUFG}] [get_bd_cells rst${RST}_buf_slr${SLR}]
+        connect_bd_net [get_bd_pins rst${RST}_pipe_slr${SLR}/Q] [get_bd_pins rst${RST}_buf_slr${SLR}/BUFG_I]
+
+        create_bd_cell -type ip -vlnv xilinx.com:ip:util_reduced_logic:2.0 rst${RST}_pass_slr${SLR}
+        set_property -dict [list CONFIG.C_SIZE {1} CONFIG.C_OPERATION {or}] [get_bd_cells rst${RST}_pass_slr${SLR}]
+        connect_bd_net [get_bd_pins rst${RST}_buf_slr${SLR}/BUFG_O] [get_bd_pins rst${RST}_pass_slr${SLR}/Op1]
+      }
+    }
+
+  # Create IP instances and connect them to clk and reset
+    foreach SLR $available_SLRs {
+      foreach ip [ lindex $ip_floorplan $SLR ] {
+        create_bd_cell -type ip -vlnv xilinx.com:hls:${ip}:1.0 $ip
+        connect_bd_net [get_bd_ports ap_clk] [get_bd_pins ${ip}/ap_clk] 
+        connect_bd_net [get_bd_pins rst0_pass_slr${SLR}/Res] [get_bd_pins ${ip}/ap_rst_n]
+      }
+    }
+
+    # add mem_subsystems
+    foreach SLR $SLRs_with_mem_subsystem {
+      set ip mem_subsystem_slr${SLR}
+      create_bd_cell -type ip -vlnv xilinx.com:user:${ip}:1.0 ${ip}
+      connect_bd_net [get_bd_ports ap_clk] [get_bd_pins ${ip}/compute_clk] 
+      connect_bd_net [get_bd_pins rst0_pass_slr${SLR}/Res] [get_bd_pins ${ip}/compute_aresetn]
+      if { $using_double_pumping} {
+        connect_bd_net [get_bd_ports ap_clk_2] [get_bd_pins ${ip}/memory_clk] 
+        connect_bd_net [get_bd_pins rst1_pass_slr${SLR}/Res] [get_bd_pins ${ip}/memory_aresetn]
+      } else {
+        connect_bd_net [get_bd_ports ap_clk] [get_bd_pins ${ip}/memory_clk] 
+        connect_bd_net [get_bd_pins rst0_pass_slr${SLR}/Res] [get_bd_pins ${ip}/memory_aresetn]
+      }
+
+    }
 
   save_bd_design
 
   # Make AXI interfaces external and rename them to standard names
-  make_bd_intf_pins_external  [get_bd_intf_pins inoutdma_0/m_axi_gmem0]
-  make_bd_intf_pins_external  [get_bd_intf_pins inoutdma_0/m_axi_gmem1]
-  make_bd_intf_pins_external  [get_bd_intf_pins inoutdma_0/m_axi_gmem2]
-  make_bd_intf_pins_external  [get_bd_intf_pins inoutdma_0/s_axi_control]
-  set_property name m_axi_gmem0 [get_bd_intf_ports m_axi_gmem0_0]
-  set_property name m_axi_gmem1 [get_bd_intf_ports m_axi_gmem1_0]
-  set_property name m_axi_gmem2 [get_bd_intf_ports m_axi_gmem2_0]
-  set_property name s_axi_control [get_bd_intf_ports s_axi_control_0]
+    make_bd_intf_pins_external  [get_bd_intf_pins inoutdma/m_axi_gmem0]
+    make_bd_intf_pins_external  [get_bd_intf_pins inoutdma/m_axi_gmem1]
+    make_bd_intf_pins_external  [get_bd_intf_pins inoutdma/m_axi_gmem2]
+    make_bd_intf_pins_external  [get_bd_intf_pins inoutdma/s_axi_control]
+    set_property name m_axi_gmem0 [get_bd_intf_ports m_axi_gmem0_0]
+    set_property name m_axi_gmem1 [get_bd_intf_ports m_axi_gmem1_0]
+    set_property name m_axi_gmem2 [get_bd_intf_ports m_axi_gmem2_0]
+    set_property name s_axi_control [get_bd_intf_ports s_axi_control_0]
   
-  foreach SRC [list inoutdma preres res2a res2b res2c res3a res3b res3c res3d res4a res4b res4c res4d res4e res4f res5a res5b res5c postres] DST [list preres res2a res2b res2c res3a res3b res3c res3d res4a res4b res4c res4d res4e res4f res5a res5b res5c postres inoutdma] {
-    set OUTWB [get_property [list CONFIG.TDATA_NUM_BYTES] [get_bd_intf_pins ${SRC}_0/output_V_V]]
-    set INWB [get_property [list CONFIG.TDATA_NUM_BYTES] [get_bd_intf_pins ${DST}_0/input_V_V]]
-    if {$OUTWB != $INWB} {
-      puts "Connecting $SRC to $DST through data width converter (${OUTWB}B -> ${INWB}B)"
-      create_bd_cell -type ip -vlnv xilinx.com:ip:axis_dwidth_converter:1.1 dwc_${SRC}_${DST}
-      set_property -dict [list CONFIG.S_TDATA_NUM_BYTES $OUTWB] [get_bd_cells dwc_${SRC}_${DST}]
-      set_property -dict [list CONFIG.M_TDATA_NUM_BYTES $INWB] [get_bd_cells dwc_${SRC}_${DST}]
-      connect_bd_intf_net [get_bd_intf_pins ${SRC}_0/output_V_V] [get_bd_intf_pins dwc_${SRC}_${DST}/S_AXIS]
-      connect_bd_intf_net [get_bd_intf_pins dwc_${SRC}_${DST}/M_AXIS] [get_bd_intf_pins ${DST}_0/input_V_V]
-      connect_bd_net [get_bd_ports ap_clk] [get_bd_pins dwc_${SRC}_${DST}/aclk]
-      # TODO (IMP): choose rstx_pass_slr0 according to the SLRs ip are
-      connect_bd_net [get_bd_pins rst0_pass_slr0/Res] [get_bd_pins dwc_${SRC}_${DST}/aresetn]
-    } else {
-      puts "Connecting $SRC to $DST directly"
-      connect_bd_intf_net [get_bd_intf_pins ${SRC}_0/output_V_V] [get_bd_intf_pins ${DST}_0/input_V_V]
+  #connect layers
+    foreach SRC [list inoutdma preres res2a res2b res2c res3a res3b res3c res3d res4a res4b res4c res4d res4e res4f res5a res5b res5c postres] DST [list preres res2a res2b res2c res3a res3b res3c res3d res4a res4b res4c res4d res4e res4f res5a res5b res5c postres inoutdma] {
+      set OUTWB [get_property [list CONFIG.TDATA_NUM_BYTES] [get_bd_intf_pins ${SRC}/output_V_V]]
+      set INWB [get_property [list CONFIG.TDATA_NUM_BYTES] [get_bd_intf_pins ${DST}/input_V_V]]
+      if {$OUTWB != $INWB} {
+        puts "Connecting $SRC to $DST through data width converter (${OUTWB}B -> ${INWB}B)"
+        create_bd_cell -type ip -vlnv xilinx.com:ip:axis_dwidth_converter:1.1 dwc_${SRC}_${DST}
+        set_property -dict [list CONFIG.S_TDATA_NUM_BYTES $OUTWB] [get_bd_cells dwc_${SRC}_${DST}]
+        set_property -dict [list CONFIG.M_TDATA_NUM_BYTES $INWB] [get_bd_cells dwc_${SRC}_${DST}]
+        connect_bd_intf_net [get_bd_intf_pins ${SRC}/output_V_V] [get_bd_intf_pins dwc_${SRC}_${DST}/S_AXIS]
+        connect_bd_intf_net [get_bd_intf_pins dwc_${SRC}_${DST}/M_AXIS] [get_bd_intf_pins ${DST}/input_V_V]
+        connect_bd_net [get_bd_ports ap_clk] [get_bd_pins dwc_${SRC}_${DST}/aclk]
+        
+        foreach SLR $available_SLRs {
+          set in_slr [lsearch [lindex $ip_floorplan $SLR ] $SRC ]
+            if { $in_slr ne -1 } {
+              connect_bd_net [get_bd_pins rst0_pass_slr${SLR}/Res] [get_bd_pins dwc_${SRC}_${DST}/aresetn]
+              break
+          }
+        }
+        
+      } else {
+        puts "Connecting $SRC to $DST directly"
+        connect_bd_intf_net [get_bd_intf_pins ${SRC}/output_V_V] [get_bd_intf_pins ${DST}/input_V_V]
+      }
     }
-  }
 
-  # if usign mem-packing : check following list
   # connect weight streams for non-packed layers
-  foreach layer $single_streamer_layers {
-    puts "$layer - connecting weights"
-    connect_bd_net [get_bd_ports ap_clk] [get_bd_pins ${layer}_streamer/ap_clk]
-
-    # TODO: automatic reset connections (remenber to delete manual connections)
-    # foreach SLR $available_SLRs {
-    #   set in_slr [lsearch $SRC $layer]
-    #   if { $obj eq -1 } {puts "yes"}
-    #     connect_bd_net [get_bd_pins rst0_pass_slr1/Res] [get_bd_pins res2a_streamer/ap_rst_n]
-    # }
-    
-    connect_bd_intf_net [get_bd_intf_pins ${layer}_streamer/weights2a_V_V] [get_bd_intf_pins ${layer}_0/weights2a_V_V]
-    connect_bd_intf_net [get_bd_intf_pins ${layer}_streamer/weights2b_V_V] [get_bd_intf_pins ${layer}_0/weights2b_V_V]
-    connect_bd_intf_net [get_bd_intf_pins ${layer}_streamer/weights2c_V_V] [get_bd_intf_pins ${layer}_0/weights2c_V_V]
-    if { [regexp {res.*a} $layer] } {
-      puts "$layer - connecting bypass weights"
-      connect_bd_intf_net [get_bd_intf_pins ${layer}_streamer/weights1_V_V] [get_bd_intf_pins ${layer}_0/weights1_V_V]
+    foreach layer $single_streamer_layers {
+      puts "Connecting $layer to ${layer}_streamer"
+      connect_bd_intf_net [get_bd_intf_pins ${layer}_streamer/weights2a_V_V] [get_bd_intf_pins ${layer}/weights2a_V_V]
+      connect_bd_intf_net [get_bd_intf_pins ${layer}_streamer/weights2b_V_V] [get_bd_intf_pins ${layer}/weights2b_V_V]
+      connect_bd_intf_net [get_bd_intf_pins ${layer}_streamer/weights2c_V_V] [get_bd_intf_pins ${layer}/weights2c_V_V]
+      if { [regexp {res.*a} $layer] } {
+        puts "  $layer - connecting bypass weights"
+        connect_bd_intf_net [get_bd_intf_pins ${layer}_streamer/weights1_V_V] [get_bd_intf_pins ${layer}/weights1_V_V]
+      }
     }
-  }
-  connect_bd_intf_net [get_bd_intf_pins inoutdma_0/weights_V_V] [get_bd_intf_pins postres_0/weights_V_V]
 
-  # if usign mem-packing
+    connect_bd_intf_net [get_bd_intf_pins inoutdma/weights_V_V] [get_bd_intf_pins postres/weights_V_V]
+
+
   #connect streams to per-slr packed streamers
-
-
-  # if usign mem-packing : connect memories per slr. connect rst_2
-  # Create port connections
-  connect_bd_net [get_bd_ports ap_clk] [get_bd_pins res2a_0/ap_clk] [get_bd_pins res2b_0/ap_clk] [get_bd_pins res2c_0/ap_clk] [get_bd_pins res3a_0/ap_clk] [get_bd_pins res3b_0/ap_clk] [get_bd_pins res3c_0/ap_clk] [get_bd_pins res3d_0/ap_clk] [get_bd_pins res4a_0/ap_clk] [get_bd_pins res4b_0/ap_clk] [get_bd_pins res4c_0/ap_clk] [get_bd_pins res4d_0/ap_clk] [get_bd_pins res4e_0/ap_clk] [get_bd_pins res4f_0/ap_clk] [get_bd_pins res5a_0/ap_clk] [get_bd_pins res5b_0/ap_clk] [get_bd_pins res5c_0/ap_clk] [get_bd_pins inoutdma_0/ap_clk] [get_bd_pins preres_0/ap_clk] [get_bd_pins postres_0/ap_clk]
-  connect_bd_net [get_bd_pins rst0_pass_slr0/Res] [get_bd_pins res3d_0/ap_rst_n] [get_bd_pins inoutdma_0/ap_rst_n] [get_bd_pins preres_0/ap_rst_n] [get_bd_pins postres_0/ap_rst_n]
-  connect_bd_net [get_bd_pins rst0_pass_slr1/Res] [get_bd_pins res2a_0/ap_rst_n] [get_bd_pins res3c_0/ap_rst_n] [get_bd_pins res4a_0/ap_rst_n] [get_bd_pins res4b_0/ap_rst_n] [get_bd_pins res5c_0/ap_rst_n]
-  connect_bd_net [get_bd_pins rst0_pass_slr2/Res] [get_bd_pins res2b_0/ap_rst_n] [get_bd_pins res3b_0/ap_rst_n] [get_bd_pins res4c_0/ap_rst_n] [get_bd_pins res4d_0/ap_rst_n] [get_bd_pins res5b_0/ap_rst_n]
-  connect_bd_net [get_bd_pins rst0_pass_slr3/Res] [get_bd_pins res2c_0/ap_rst_n] [get_bd_pins res3a_0/ap_rst_n] [get_bd_pins res4e_0/ap_rst_n] [get_bd_pins res4f_0/ap_rst_n] [get_bd_pins res5a_0/ap_rst_n]
-
-  # TODO :  delete after solving the automatic reset connections
-  #streamers rst connections
-  connect_bd_net [get_bd_pins rst0_pass_slr0/Res] [get_bd_pins res3d_streamer/ap_rst_n] [get_bd_pins inoutdma_streamer/ap_rst_n] [get_bd_pins preres_streamer/ap_rst_n] [get_bd_pins postres_streamer/ap_rst_n]
-  connect_bd_net [get_bd_pins rst0_pass_slr1/Res] [get_bd_pins res2a_streamer/ap_rst_n] [get_bd_pins res3c_streamer/ap_rst_n] [get_bd_pins res4a_streamer/ap_rst_n] [get_bd_pins res4b_streamer/ap_rst_n] [get_bd_pins res5c_streamer/ap_rst_n]
-  connect_bd_net [get_bd_pins rst0_pass_slr2/Res] [get_bd_pins res2b_streamer/ap_rst_n] [get_bd_pins res3b_streamer/ap_rst_n] [get_bd_pins res4c_streamer/ap_rst_n] [get_bd_pins res4d_streamer/ap_rst_n] [get_bd_pins res5b_streamer/ap_rst_n]
-  connect_bd_net [get_bd_pins rst0_pass_slr3/Res] [get_bd_pins res2c_streamer/ap_rst_n] [get_bd_pins res3a_streamer/ap_rst_n] [get_bd_pins res4e_streamer/ap_rst_n] [get_bd_pins res4f_streamer/ap_rst_n] [get_bd_pins res5a_streamer/ap_rst_n]
+    foreach SLR $SLRs_with_mem_subsystem {
+      foreach layer [lindex $layer_floorplan $SLR ] {
+        set in_slr [ lsearch  ${pack_streamer_layers}  $layer ]
+          if { $in_slr ne -1 } {
+            puts "Connecting $layer to mem_subsystem_slr${SLR}"
+            connect_bd_intf_net [get_bd_intf_pins mem_subsystem_slr${SLR}/${layer}_2a] [get_bd_intf_pins ${layer}/weights2a_V_V]
+            connect_bd_intf_net [get_bd_intf_pins mem_subsystem_slr${SLR}/${layer}_2b] [get_bd_intf_pins ${layer}/weights2b_V_V]
+            connect_bd_intf_net [get_bd_intf_pins mem_subsystem_slr${SLR}/${layer}_2c] [get_bd_intf_pins ${layer}/weights2c_V_V]
+            if { [regexp {res.*a} $layer] } {
+              puts "  $layer - connecting bypass weights"
+              connect_bd_intf_net [get_bd_intf_pins mem_subsystem_slr${SLR}/${layer}_1] [get_bd_intf_pins ${layer}/weights1_V_V]
+            }
+        }
+      }
+    }
 
   # Create constant 1 for start and continue lines
-  create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_0
-  set_property -dict [list CONFIG.CONST_VAL {1}] [get_bd_cells xlconstant_0]
-  connect_bd_net [get_bd_pins xlconstant_0/dout] [get_bd_pins preres_0/ap_start] [get_bd_pins res2a_0/ap_start] [get_bd_pins res2b_0/ap_start] [get_bd_pins res2c_0/ap_start] [get_bd_pins res3a_0/ap_start] [get_bd_pins res3b_0/ap_start] [get_bd_pins res3c_0/ap_start] [get_bd_pins res3d_0/ap_start] [get_bd_pins res4a_0/ap_start] [get_bd_pins res4b_0/ap_start] [get_bd_pins res4c_0/ap_start] [get_bd_pins res4d_0/ap_start] [get_bd_pins res4e_0/ap_start] [get_bd_pins res4f_0/ap_start] [get_bd_pins res5a_0/ap_start] [get_bd_pins res5b_0/ap_start] [get_bd_pins res5c_0/ap_start] [get_bd_pins postres_0/ap_start]
-  connect_bd_net [get_bd_pins xlconstant_0/dout] [get_bd_pins preres_0/ap_continue] [get_bd_pins res2a_0/ap_continue] [get_bd_pins res2b_0/ap_continue] [get_bd_pins res2c_0/ap_continue] [get_bd_pins res3a_0/ap_continue] [get_bd_pins res3b_0/ap_continue] [get_bd_pins res3c_0/ap_continue] [get_bd_pins res3d_0/ap_continue] [get_bd_pins res4a_0/ap_continue] [get_bd_pins res4b_0/ap_continue] [get_bd_pins res4c_0/ap_continue] [get_bd_pins res4d_0/ap_continue] [get_bd_pins res4e_0/ap_continue] [get_bd_pins res4f_0/ap_continue] [get_bd_pins res5a_0/ap_continue] [get_bd_pins res5b_0/ap_continue] [get_bd_pins res5c_0/ap_continue] [get_bd_pins postres_0/ap_continue]
+    create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_0
+    set_property -dict [list CONFIG.CONST_VAL {1}] [get_bd_cells xlconstant_0]
+    foreach ip { preres res2a res2b res2c res3a res3b res3c res3d res4a res4b res4c res4d res4e res4f res5a res5b res5c postres } {
+      connect_bd_net [get_bd_pins xlconstant_0/dout] [get_bd_pins ${ip}/ap_start]
+      connect_bd_net [get_bd_pins xlconstant_0/dout] [get_bd_pins ${ip}/ap_continue]
+    }
 
   # Auto-assign addresses (TODO: check)
-  exclude_bd_addr_seg [get_bd_addr_segs inoutdma_0/Data_m_axi_gmem0/SEG_m_axi_gmem0_Reg]
-  exclude_bd_addr_seg [get_bd_addr_segs inoutdma_0/Data_m_axi_gmem1/SEG_m_axi_gmem1_Reg]
-  exclude_bd_addr_seg [get_bd_addr_segs inoutdma_0/Data_m_axi_gmem2/SEG_m_axi_gmem2_Reg]
-  exclude_bd_addr_seg [get_bd_addr_segs s_axi_control/SEG_inoutdma_0_Reg]
+    exclude_bd_addr_seg [get_bd_addr_segs inoutdma/Data_m_axi_gmem0/SEG_m_axi_gmem0_Reg]
+    exclude_bd_addr_seg [get_bd_addr_segs inoutdma/Data_m_axi_gmem1/SEG_m_axi_gmem1_Reg]
+    exclude_bd_addr_seg [get_bd_addr_segs inoutdma/Data_m_axi_gmem2/SEG_m_axi_gmem2_Reg]
+    exclude_bd_addr_seg [get_bd_addr_segs s_axi_control/SEG_inoutdma_Reg]
 
   # Restore current instance
   current_bd_instance $oldCurInst
