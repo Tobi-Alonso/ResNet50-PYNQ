@@ -31,8 +31,8 @@ XCLBIN=link/resnet50.xclbin
 all: $(XCLBIN)
 
 $(XCLBIN):
-	make -C compile/
-	make -C link/
+	make -C compile/ -j6
+	make -C link/ -j6
 
 install:
 	cp link/resnet50.xclbin host/
