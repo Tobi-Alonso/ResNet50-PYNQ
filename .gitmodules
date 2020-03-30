@@ -4,3 +4,7 @@
 [submodule "src/hls/finn"]
 	path = src/hls/finn
 	url = https://github.com/Xilinx/finn.git
+
+[submodule "compile/FINN-RTLLib"]
+	path = compile/FINN-RTLLib
+	url = git@gitenterprise.xilinx.com:tobiasa/FINN-RTLLib.git
