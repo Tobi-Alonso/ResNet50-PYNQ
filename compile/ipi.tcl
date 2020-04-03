@@ -29,17 +29,6 @@
 set clkfreqmhz  [lindex $::argv 0]
 set device      [lindex $::argv 1]
 
-############################
-# System configuration
-############################
-variable ipi_scr_path [file normalize [info script]]
-source ${ipi_scr_path}/compile/system_config.tcl
-
-############################
-# Script begins 
-############################
-
-
 # Set the reference directory for source file relative paths (by default the value is script directory path)
 set origin_dir "."
 
@@ -47,6 +36,10 @@ set origin_dir "."
 if { [info exists ::origin_dir_loc] } {
   set origin_dir $::origin_dir_loc
 }
+
+
+#source configuration file
+source ${origin_dir}/system_config.tcl
 
 # Set the project name
 set project_name "project_1"
@@ -484,9 +477,13 @@ generate_target all [get_files  resnet50.bd ]
 export_ip_user_files -of_objects [get_files resnet50.bd ] -no_script -sync -force -quiet
 create_ip_run [get_files -of_objects [get_fileset sources_1] resnet50.bd ]
 
-# if usign mem-packing : check this
+
 foreach layer $single_streamer_layers {
   set_property STEPS.SYNTH_DESIGN.ARGS.FANOUT_LIMIT 100 [get_runs resnet50_${layer}_streamer_0_synth_1]
+}
+
+foreach SLR $SLRs_with_mem_subsystem {
+  set_property STEPS.SYNTH_DESIGN.ARGS.FANOUT_LIMIT 100 [get_runs resnet50_mem_subsystem_slr${SLR}_0_synth_1]
 }
 
 launch_runs synth_1 -jobs 10
