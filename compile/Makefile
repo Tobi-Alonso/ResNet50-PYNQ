@@ -38,17 +38,23 @@ MISC_LAYERS=preres postres
 MISC_LAYER_IPS=$(addsuffix .zip,$(MISC_LAYERS))
 DEFAULT_FREQ_MHZ=250
 DEFAULT_PERIOD_NS=$(shell expr 1000 / $(DEFAULT_FREQ_MHZ))
-DEVICE=xcu250-figd2104-2L-e
+# DEVICE=xcu250-figd2104-2L-e
+DEVICE=xcu280-fsvh2892-2l-e
+PACK_WEIGHTS=resnetw1a2_u280v3
 COMMAND=ip
 NET=w1a2_v1.0
 
 all: resnet50.xo
 
-resnet50.xo: $(RESBLOCK_BAKEDIN_IPS) $(RESBLOCK_STREAMED_IPS) $(RESBLOCK_STREAMER_IPS) $(DMA_IPS) $(MISC_LAYER_IPS)
+resnet50.xo: $(RESBLOCK_BAKEDIN_IPS) $(RESBLOCK_STREAMED_IPS) $(RESBLOCK_STREAMER_IPS) $(DMA_IPS) $(MISC_LAYER_IPS) mem_subsystems
 	vivado -mode batch -source ipi.tcl -tclargs $(DEFAULT_FREQ_MHZ) $(DEVICE)
 	vivado -mode batch -source package_ip.tcl -tclargs resnet50 ip/ ip_repo/
 	vivado -mode batch -source package_dcp.tcl -tclargs resnet50 ip/ ip_repo/ $(DEVICE)
 	vivado -mode batch -source gen_xo.tcl -tclargs resnet50.xo resnet50 ip_repo/ kernel.xml
+
+mem_subsystems:
+	make -C mem-packing/data/ NET=$(PACK_WEIGHTS)
+	vivado -mode batch -source mem_subsystems.tcl -tclargs $(DEFAULT_FREQ_MHZ) $(DEVICE) $(PACK_WEIGHTS)
 
 .PHONY=resblocks_bakedin
 resblocks_bakedin: $(RESBLOCK_BAKEDIN_IPS)
