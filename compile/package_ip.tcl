@@ -36,6 +36,17 @@ set krnl_name   [lindex $::argv 0]
 set path_to_hdl [lindex $::argv 1]
 set path_to_ip  [lindex $::argv 2]
 
+# Set the reference directory for source file relative paths (by default the value is script directory path)
+set origin_dir "."
+
+# Use origin directory path location variable, if specified in the tcl shell
+if { [info exists ::origin_dir_loc] } {
+  set origin_dir $::origin_dir_loc
+}
+
+#source configuration file
+source ${origin_dir}/system_config.tcl
+
 set path_to_tmp $path_to_hdl/pkg_tmp
 
 create_project -force kernel_pack $path_to_tmp 
@@ -56,9 +67,13 @@ ipx::associate_bus_interfaces -busif m_axi_gmem0 -clock ap_clk [ipx::current_cor
 ipx::associate_bus_interfaces -busif m_axi_gmem1 -clock ap_clk [ipx::current_core]
 ipx::associate_bus_interfaces -busif m_axi_gmem2 -clock ap_clk [ipx::current_core]
 ipx::associate_bus_interfaces -busif s_axi_control -clock ap_clk [ipx::current_core]
-# if using mem-packing
-# ipx::infer_bus_interface ap_clk_2 xilinx.com:signal:clock_rtl:1.0 [ipx::current_core]
-# ipx::infer_bus_interface ap_rst_n_2 xilinx.com:signal:reset_rtl:1.0 [ipx::current_core]
+
+if { $enable_clk2 } {
+	ipx::infer_bus_interface ap_clk_2 xilinx.com:signal:clock_rtl:1.0 [ipx::current_core]
+	ipx::infer_bus_interface ap_rst_n_2 xilinx.com:signal:reset_rtl:1.0 [ipx::current_core]
+}
+
+
 set_property xpm_libraries {XPM_CDC XPM_MEMORY XPM_FIFO} [ipx::current_core]
 set_property supported_families { } [ipx::current_core]
 set_property auto_family_support_level level_2 [ipx::current_core]

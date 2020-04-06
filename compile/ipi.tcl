@@ -179,7 +179,6 @@ proc cr_bd_resnet50 { parentCell } {
   global clkfreqmhz
 
   global design_name
-  global using_double_pumping
   global single_streamer_layers
   global SLRs_with_mem_subsystem
   global pack_streamer_layers
@@ -361,7 +360,7 @@ proc cr_bd_resnet50 { parentCell } {
       create_bd_cell -type ip -vlnv xilinx.com:user:${ip}:1.0 ${ip}
       connect_bd_net [get_bd_ports ap_clk] [get_bd_pins ${ip}/compute_clk] 
       connect_bd_net [get_bd_pins rst0_pass_slr${SLR}/Res] [get_bd_pins ${ip}/compute_aresetn]
-      if { $using_double_pumping} {
+      if { $enable_clk2} {
         connect_bd_net [get_bd_ports ap_clk_2] [get_bd_pins ${ip}/memory_clk] 
         connect_bd_net [get_bd_pins rst1_pass_slr${SLR}/Res] [get_bd_pins ${ip}/memory_aresetn]
       } else {

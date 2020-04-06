@@ -1,19 +1,23 @@
+
+
 # CHANGE DESIGN NAME HERE
 set design_name resnet50
- 
+
+
 # TODO: this file should source non-automatic variables to from a single configuration point
 # for now they can be redundant and must match Makefile variables:
 # PACK_WEIGHTS, DEVICE, RESBLOCK_BAKEDIN_IPS, RESBLOCK_STREAMED_IPS
 
-
+#TODO: generate this list from SLR number argument
 set enable_clk2 1 
-set single_streamer_layers { }
+set single_streamer_layers {  }
 set pack_streamer_layers { res4a res4b res4c res4d res4e res4f res5a res5b res5c }
-set SLRs_with_mem_subsystem { 0 1 2 }
+set SLRs_with_mem_subsystem { 1 2 3 }
 set layer_floorplan {
-  	{ inoutdma postres res3c res3d res4a res4b res4c res5c}
-	{ preres res3b res4d res5b}
-	{ res2a res2b res2c res3a res4e res4f res5a}
+  { inoutdma preres res3d postres }    
+  { res2a res3c res4a res4b res5c } 
+  { res2b res3b res4c res4d res5b } 
+  { res2c res3a res4e res4f res5a } 
 }
 
 # automatic configurations
