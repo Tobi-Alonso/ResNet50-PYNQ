@@ -26,8 +26,8 @@
 #  OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-PLATFORM ?= "xilinx_u250_xdma_201830_2"
-# PLATFORM ?= "xilinx_u280_xdma_201920_1"
+# PLATFORM ?= "xilinx_u250_xdma_201830_2"
+PLATFORM ?= "xilinx_u280_xdma_201920_3"
 XO_INPUT=../compile/resnet50.xo
 KERNEL = resnet50
 XCLBIN_OUTPUT=$(KERNEL).xclbin
@@ -56,9 +56,9 @@ FLOORPLAN_OPTS=--xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.TCL.POST=$(FLOORPLAN
 PROFILE_OPTS=
 
 # Config for HBM instead of DDR:
-# MEM_MAP := --connectivity.sp resnet50_1.in:HBM[0:31]
-# MEM_MAP := $(MEM_MAP) --connectivity.sp resnet50_1.out:HBM[0:31]
-# MEM_MAP := $(MEM_MAP) --connectivity.sp resnet50_1.weightsmem:HBM[0:31]
+MEM_MAP := --connectivity.sp resnet50_1.in:HBM[0:31]
+MEM_MAP := $(MEM_MAP) --connectivity.sp resnet50_1.out:HBM[0:31]
+MEM_MAP := $(MEM_MAP) --connectivity.sp resnet50_1.weightsmem:HBM[0:31]
 
 all: $(XCLBIN_OUTPUT)
 
