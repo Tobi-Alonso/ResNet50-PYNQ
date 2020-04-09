@@ -53,7 +53,7 @@ using namespace hls;
   #ifdef RES2BR
   #pragma HLS INTERFACE axis register both port=weights1
   #endif
-  #pragma HLS INTERFACE ap_ctrl_chain port=return
+  #pragma HLS INTERFACE ap_ctrl_none port=return
   #include "pragma_thresholds.h"
   #pragma HLS DATAFLOW
 
