@@ -28,16 +28,10 @@
 
 
 #contents of this script are run after opt_design and before placement
-# Set the reference directory for source file relative paths (by default the value is script directory path)
-set origin_dir "."
-
-# Use origin directory path location variable, if specified in the tcl shell
-if { [info exists ::origin_dir_loc] } {
-  set origin_dir $::origin_dir_loc
-}
+variable floorplan_scr_path [file dirname [file normalize [info script]]]
 
 #source configuration file
-source ${origin_dir}/../compile/system_config.tcl
+source ${floorplan_scr_path}/../compile/system_config.tcl
 
 foreach SLR $available_SLRs {
 	foreach ip [lindex $ip_floorplan $SLR ] {
