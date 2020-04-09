@@ -513,10 +513,10 @@ void Residual_2branches_WStream(
 	unsigned const MatrixH_2a = BR2A_OFMC;
 
 	if (BR2A_STRIDE > 1) {
-		SWG_kernel1_Batch<BR2A_SIMD * BR2A_INBITS, BR2A_IFMDIM, BR2A_IFMC / BR2A_SIMD, BR2A_STRIDE>(conv_br2a_in, convInp, numReps);
+		SWG_kernel1_Batch<BR2A_SIMD * BR2A_INBITS, BR2A_IFMDIM, BR2A_IFMC / BR2A_SIMD, BR2A_STRIDE>(conv_br2a_in, convInp2A, numReps);
 
 		Matrix_Vector_Activate_Stream_Batch<MatrixW_2a, MatrixH_2a, BR2A_SIMD, BR2A_PE, Slice<ap_uint<BR2A_INBITS>>, Slice<ap_uint<BR2A_ACTBITS>>, BR2A_WINTERPRET, ap_uint<BR2A_WBITS> >
-				(static_cast<hls::stream<ap_uint<BR2A_SIMD * BR2A_INBITS>>&>(convInp),
+				(static_cast<hls::stream<ap_uint<BR2A_SIMD * BR2A_INBITS>>&>(convInp2A),
 				static_cast<hls::stream<ap_uint<BR2A_PE * BR2A_ACTBITS>>&>  (conv_br2a_out),
 				weightMem2A, threshMem2A, numReps * OFMDim_2a * OFMDim_2a, ap_resource_lut());
 	}
@@ -560,7 +560,6 @@ void Residual_2branches_WStream(
 	// Feed everything to the MVAU
 	unsigned const MatrixW = 3 * 3 * BR2B_IFMC;
 	unsigned const MatrixH = BR2B_OFMC;
-	stream<ap_uint<BR2B_PE * BR2B_ACTBITS>> dwc_2B_out("BR2B.convOut");
 	Matrix_Vector_Activate_Stream_Batch<MatrixW, MatrixH, BR2B_SIMD, BR2B_PE, Slice<ap_uint<BR2B_INBITS>>, Slice<ap_uint<BR2B_ACTBITS>>, BR2B_WINTERPRET,ap_int<BR2B_WBITS> >
 			(static_cast<hls::stream<ap_uint<BR2B_SIMD * BR2B_INBITS>>&>(convInp2B),
 			static_cast<hls::stream<ap_uint<BR2B_PE * BR2B_ACTBITS>>&>  (dwc_2B_out),
@@ -726,7 +725,6 @@ void Residual_1branch_WStream(
 	// Feed everything to the MVAU
 	unsigned const MatrixW = 3 * 3 * BR2B_IFMC;
 	unsigned const MatrixH = BR2B_OFMC;
-	stream<ap_uint<BR2B_PE * BR2B_ACTBITS>> dwc_2B_out("BR2B.convOut");
 	Matrix_Vector_Activate_Stream_Batch<MatrixW, MatrixH, BR2B_SIMD, BR2B_PE, Slice<ap_uint<BR2B_INBITS>>, Slice<ap_uint<BR2B_ACTBITS>>, BR2B_WINTERPRET, ap_uint<BR2B_WBITS> >
 			(static_cast<hls::stream<ap_uint<BR2B_SIMD * BR2B_INBITS>>&>(convInp),
 			static_cast<hls::stream<ap_uint<BR2B_PE * BR2B_ACTBITS>>&>  (dwc_2B_out),
