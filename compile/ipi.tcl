@@ -445,8 +445,12 @@ proc cr_bd_resnet50 { parentCell } {
     create_bd_cell -type ip -vlnv xilinx.com:ip:xlconstant:1.1 xlconstant_0
     set_property -dict [list CONFIG.CONST_VAL {1}] [get_bd_cells xlconstant_0]
     foreach ip { preres res2a res2b res2c res3a res3b res3c res3d res4a res4b res4c res4d res4e res4f res5a res5b res5c postres } {
-      connect_bd_net [get_bd_pins xlconstant_0/dout] [get_bd_pins ${ip}/ap_start]
-      connect_bd_net [get_bd_pins xlconstant_0/dout] [get_bd_pins ${ip}/ap_continue]
+      set is_packed [ lsearch  ${pack_streamer_layers}  $ip ]
+      if { $is_packed eq -1 } {
+        connect_bd_net [get_bd_pins xlconstant_0/dout] [get_bd_pins ${ip}/ap_start]
+        connect_bd_net [get_bd_pins xlconstant_0/dout] [get_bd_pins ${ip}/ap_continue]
+      }
+      
     }
 
   # Auto-assign addresses (TODO: check)
